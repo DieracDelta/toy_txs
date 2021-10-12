@@ -22,8 +22,11 @@ Input data set is a CSV (see tests for example inputs) including the following t
 - What happens if a Dispute transaction is disputed? Currently this is no-oped as a server error. It's not clear what should happen when the transaction type is not a deposit. This would require the addition of a "confirmed" withdrawal.
 - What happens if input CSV format is malformed? The program will error.
 
+# Error handling
+I'm using `anyhow` to propagate errors through out of `main`. However for now, I've opted for the strawman approach to not error unless there is an issue parsing the input. The remainder of the time, transactions are just be ignored if they do not fit within the spec. In the future I'd like to add a custom error type for each point of failure in a transaction, use `thiserror` for detailed descriptions, and and explicitly output errors into a text file (but still not fail visibly to stdout).
+
 # Performance:
-It is hard to handle large data sets currently, since all deposits must be tracked in case there is a dispute. In the future, an addition of a database (or really any non-volatile storage) would be the morally correct solution to avoid large ram usage while maintaining efficiency.
+It is hard to handle large data sets currently, since all deposits must be tracked in case there is a dispute. In the future, an addition of a database (or really any non-volatile storage) would be the morally correct solution to avoid large ram usage while maintaining speed.
 
 # Input:
 
