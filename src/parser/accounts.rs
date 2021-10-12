@@ -1,3 +1,4 @@
+#![allow(clippy::unnecessary_unwrap)]
 use crate::parser::transactions::{
     deserialize_floating_point, FloatingPoint, Transaction, TransactionType,
 };

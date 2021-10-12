@@ -1,3 +1,4 @@
+#![allow(clippy::unnecessary_unwrap)]
 use anyhow::Result;
 use fixed::{types::extra::U15, FixedI128};
 use serde::{
@@ -87,7 +88,7 @@ impl<'de> Visitor<'de> for FloatingPointVisitor {
     {
         value
             .parse::<f64>()
-            .and_then(|x| Ok(FloatingPoint::from_num(x)))
+            .map(FloatingPoint::from_num)
             .map_err(|_err| {
                 E::invalid_value(Unexpected::Str(value), &"a string representation of a f64")
             })
