@@ -32,7 +32,7 @@ impl TransactionType {
             TransactionType::Deposit => FloatingPoint::from_num(1),
             TransactionType::Withdrawal => FloatingPoint::from_num(-1),
             // everything else is a noop
-            _ => FloatingPoint::from_num(-1),
+            _ => FloatingPoint::from_num(0),
         }
     }
 }
