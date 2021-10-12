@@ -15,3 +15,4 @@ fixed = { version = "1.10.0", features = ["serde", "std"]}
 fixed-macro = "1.1"
 [package.metadata.nix]
 build = true
+systems = ["x86_64-linux"]
