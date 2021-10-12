@@ -1,0 +1,17 @@
+[package]
+name = "transactions"
+version = "0.1.0"
+authors = ["Justin Restivo <justin@restivo.me>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = "1.0"
+csv = "1.1"
+serde = { version = "1", features = ["derive"]}
+float-cmp = "0.9.0"
+fixed = { version = "1.10.0", features = ["serde", "std"]}
+fixed-macro = "1.1"
+[package.metadata.nix]
+build = true
