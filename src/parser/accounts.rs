@@ -8,7 +8,6 @@ use serde::{self, Deserialize, Serialize, Serializer};
 use std::collections::{HashMap, HashSet};
 use std::io::Write;
 
-// Assumptions: only deposits can be disputed
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct Account {
     #[serde(rename = "client")]
@@ -90,9 +89,9 @@ impl Accounts {
     /// specification:
     /// - if an account is frozen, this function is a noop.
     /// - Deposit: adds amount to the account's total balance and available balance
-    /// - Withdrawal: subtracts its amount from the account's total balance and available balance
+    /// - Withdrawal: subtracts amount from the account's total balance and available balance
     /// - Dispute: if the disputed tx exists and is a deposit, move the amount
-    ///   from the available balance to the held balance. All other disputed transaction types are a noop.
+    ///   from the available balance to the held balance.
     /// - Resolve: money is returned from the held balance to the avail balance
     /// - Chargeback: money is removed from the held balance and total balance.
     pub fn process_transaction(&mut self, t: &Transaction) {
@@ -100,6 +99,7 @@ impl Accounts {
             .state
             .entry(t.client_id)
             .or_insert_with(|| Account::new(t.client_id));
+        // "frozen" means transactions are no longer processed
         if account.locked {
             return;
         }
@@ -120,28 +120,30 @@ impl Accounts {
                     .and_then(|x| x.checked_add(account.avail_bal));
                 if new_total_bal.is_some()
                     && new_avail_bal.is_some()
-                    && new_total_bal.unwrap() >= FloatingPoint::from_num(0)
-                    && new_avail_bal.unwrap() >= FloatingPoint::from_num(0)
+                    // may deposit to negative available balance
+                    // may not withdraw from negative available balance
+                    && (t.transaction_type == TransactionType::Deposit
+                        || new_avail_bal.unwrap() >= FloatingPoint::from_num(0))
                 {
                     account.total_bal = new_total_bal.unwrap();
                     account.avail_bal = new_avail_bal.unwrap();
-                    // will not be overwriting because tx ids are unique
-                    // Could limit to just deposits for now.
+                    // will not be overwriting because tx ids are assumed to be unique per spec
                     account.transactions.insert(t.tx_id, *t);
-                } else {
-                    println!("skipping deposit {:?}", t);
                 }
             }
             TransactionType::Dispute => {
                 if let Some(disputed_tx) = account.transactions.get(&t.tx_id) {
-                    // Only deposits make sense to be disputed; everything else is a noop.
-                    // If the transaction is a withdrawal, then the money is already missing.
-                    // One way to deal with this is to refund the account total balance and place
-                    // funds on hold. I didn't implement this since it directly violates the spec.
-                    if disputed_tx.transaction_type == TransactionType::Deposit {
+                    // Only deposits and withdrawals can be disputed
+                    if disputed_tx.transaction_type == TransactionType::Deposit
+                        || disputed_tx.transaction_type == TransactionType::Withdrawal
+                    {
                         if let Some(disputed_amount) = disputed_tx.amount {
-                            let new_avail_bal = account.avail_bal.checked_sub(disputed_amount.0);
-                            let new_held_bal = account.held_bal.checked_add(disputed_amount.0);
+                            let sign = disputed_tx.transaction_type.get_sign();
+                            let signed_amnt_wr = disputed_amount.0.checked_mul(sign);
+                            let new_avail_bal = signed_amnt_wr
+                                .and_then(|signed_amnt| account.avail_bal.checked_sub(signed_amnt));
+                            let new_held_bal = signed_amnt_wr
+                                .and_then(|signed_amnt| account.held_bal.checked_add(signed_amnt));
                             if new_held_bal.is_some() && new_avail_bal.is_some() {
                                 account.avail_bal = new_avail_bal.unwrap();
                                 account.held_bal = new_held_bal.unwrap();
@@ -156,8 +158,12 @@ impl Accounts {
                     // should always be true in order for it to be marked as disputed
                     if account.disputes.contains(&disputed_tx.tx_id) {
                         if let Some(disputed_amount) = disputed_tx.amount {
-                            let new_held_bal = account.held_bal.checked_sub(disputed_amount.0);
-                            let new_avail_bal = account.avail_bal.checked_add(disputed_amount.0);
+                            let sign = disputed_tx.transaction_type.get_sign();
+                            let signed_amnt_wr = disputed_amount.0.checked_mul(sign);
+                            let new_held_bal = signed_amnt_wr
+                                .and_then(|signed_amnt| account.held_bal.checked_sub(signed_amnt));
+                            let new_avail_bal = signed_amnt_wr
+                                .and_then(|signed_amnt| account.avail_bal.checked_add(signed_amnt));
                             if new_avail_bal.is_some() && new_held_bal.is_some() {
                                 account.held_bal = new_held_bal.unwrap();
                                 account.avail_bal = new_avail_bal.unwrap();
@@ -172,8 +178,12 @@ impl Accounts {
                     // should always be true in order for it to be marked as disputed
                     if account.disputes.contains(&disputed_tx.tx_id) {
                         if let Some(disputed_amount) = disputed_tx.amount {
-                            let new_held_bal = account.held_bal.checked_sub(disputed_amount.0);
-                            let new_total_bal = account.total_bal.checked_sub(disputed_amount.0);
+                            let sign = disputed_tx.transaction_type.get_sign();
+                            let signed_amnt_wr = disputed_amount.0.checked_mul(sign);
+                            let new_held_bal = signed_amnt_wr
+                                .and_then(|signed_amnt| account.held_bal.checked_sub(signed_amnt));
+                            let new_total_bal = signed_amnt_wr
+                                .and_then(|signed_amnt| account.total_bal.checked_sub(signed_amnt));
                             if new_total_bal.is_some() && new_held_bal.is_some() {
                                 account.held_bal = new_held_bal.unwrap();
                                 account.total_bal = new_total_bal.unwrap();
