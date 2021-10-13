@@ -12,8 +12,8 @@ const DATA_1: &str = r#"
        deposit, 1,3,    2.0
        withdrawal,  1,4,    1.5
        withdrawal, 2, 5,   3.0
-       dispute, 1, 1,
-       resolve, 1, 1,
+       dispute, 1, 1
+       resolve, 1, 1
        dispute, 2, 2,
        chargeback, 2, 2,"#;
 
@@ -81,7 +81,7 @@ const DATA_1_EXPECTED: [&str; 3] = [
 
 const DATA_3: &str = r#"
        type, client ,tx , amount
-       withdrawal,  1,4,    1.5"#;
+       withdrawal,  1,4,    1.5,,,,"#;
 
 const DATA_3_EXPECTED: [&str; 2] = [
     "client,available,held,total,locked",
@@ -158,6 +158,7 @@ const DATA_8_EXPECTED: [&str; 2] = [
 fn test_data(data: &str, data_expected: Vec<&str>) -> Result<()> {
     let mut rdr = ReaderBuilder::new()
         .trim(Trim::All)
+        .flexible(true)
         .delimiter(b',')
         .from_reader(data.as_bytes());
     let mut accounts = Accounts::new();
@@ -223,6 +224,7 @@ pub fn test_deserialize() -> Result<()> {
     let data = DATA_1;
     let mut rdr = ReaderBuilder::new()
         .trim(Trim::All)
+        .flexible(true)
         .delimiter(b',')
         .from_reader(data.as_bytes());
     let mut expected_results = DATA_1_EXPECTED_TXS.to_vec();
@@ -230,8 +232,8 @@ pub fn test_deserialize() -> Result<()> {
     for result in rdr.deserialize() {
         let record: Transaction = result?;
         let expected_record = expected_results.pop().unwrap();
-        println!("parsed record: {:?}", record);
-        println!("expected record: {:?}\n", expected_record);
+        //println!("parsed record: {:?}", record);
+        //println!("expected record: {:?}\n", expected_record);
         assert!(record.check_state());
         assert_eq!(record, expected_record);
     }
@@ -246,6 +248,7 @@ pub fn test_empty() -> Result<()> {
     let mut rdr = ReaderBuilder::new()
         .trim(Trim::All)
         .delimiter(b',')
+        .flexible(true)
         .from_reader(data.as_bytes());
     assert_eq!(
         rdr.deserialize()
@@ -262,13 +265,14 @@ pub fn test_process_txs() -> Result<()> {
     let data = DATA_1;
     let mut rdr = ReaderBuilder::new()
         .trim(Trim::All)
+        .flexible(true)
         .delimiter(b',')
         .from_reader(data.as_bytes());
     let mut accounts = Accounts::new();
     for result in rdr.deserialize() {
         let finished = result?;
         accounts.process_transaction(&finished);
-        println!("tx: {:?}\naccount: {:?}\n\n", &finished, accounts);
+        //println!("tx: {:?}\naccount: {:?}\n\n", &finished, accounts);
     }
     let mut expected_accounts = Accounts::new();
     let mut expected_hm_account_1 = HashMap::new();
